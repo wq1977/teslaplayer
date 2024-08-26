@@ -52,6 +52,7 @@ function playKalaOK() {
         if (videoPlayer.value) {
             videoPlayer.value.load()
             videoPlayer.value.play()
+            videoPlayer.value.requestFullscreen();
         }
     })
 }
