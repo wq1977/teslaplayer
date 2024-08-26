@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "vue-router": "./node_modules/vue-router/index.js",
+    "vue": "./node_modules/vue/dist/vue.global.js"
+  }
+}
