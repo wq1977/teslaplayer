@@ -54,6 +54,7 @@ function togglePlay() {
         videoPlayer.value.pause()
     } else {
         videoPlayer.value.play()
+        videoPlayer.value.requestFullscreen();
     }
 }
 
@@ -77,6 +78,7 @@ function playPrevious() {
         videoPlayer.value.src = sources[previousIndex].src;
         videoPlayer.value.load();
         videoPlayer.value.play();
+        videoPlayer.value.requestFullscreen();
     }
 }
 
@@ -88,6 +90,7 @@ function playNext() {
         videoPlayer.value.src = sources[nextIndex].src;
         videoPlayer.value.load();
         videoPlayer.value.play();
+        videoPlayer.value.requestFullscreen();
     }
 }
 
@@ -215,7 +218,7 @@ async function shutDown() {
                     opacity: '0.8'
                 }">🎤</span>
             </div>
-            <div v-for="song in videos" :key="song.id" @click="playSong(song)" class="song-item" :style="{
+            <div v-for="song in videos" :key="song.path" @click="playSong(song)" class="song-item" :style="{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
