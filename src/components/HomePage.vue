@@ -39,12 +39,12 @@ onMounted(() => {
 function playSong(song) {
     currentSong.value = song
     isPlaying.value = true
+    videoPlayer.value.src = song.url
     // 确保视频元素已经更新
     nextTick(() => {
         if (videoPlayer.value) {
             videoPlayer.value.load() // 重新加载视频源
             videoPlayer.value.play() // 开始播放新的视频
-            videoPlayer.value.requestFullscreen();
         }
     })
 }
@@ -54,7 +54,6 @@ function togglePlay() {
         videoPlayer.value.pause()
     } else {
         videoPlayer.value.play()
-        videoPlayer.value.requestFullscreen();
     }
 }
 
@@ -65,32 +64,29 @@ function playKalaOK() {
         if (videoPlayer.value) {
             videoPlayer.value.load()
             videoPlayer.value.play()
-            videoPlayer.value.requestFullscreen();
         }
     })
 }
 
 function playPrevious() {
     const sources = videoPlayer.value.getElementsByTagName('source');
-    if (sources.length > 0) {
+    if (sources.length > 1) {
         const currentIndex = Array.from(sources).findIndex(source => source.src === videoPlayer.value.currentSrc);
         const previousIndex = (currentIndex - 1 + sources.length) % sources.length;
         videoPlayer.value.src = sources[previousIndex].src;
         videoPlayer.value.load();
         videoPlayer.value.play();
-        videoPlayer.value.requestFullscreen();
     }
 }
 
 function playNext() {
     const sources = videoPlayer.value.getElementsByTagName('source');
-    if (sources.length > 0) {
+    if (sources.length > 1) {
         const currentIndex = Array.from(sources).findIndex(source => source.src === videoPlayer.value.currentSrc);
         const nextIndex = (currentIndex + 1) % sources.length;
         videoPlayer.value.src = sources[nextIndex].src;
         videoPlayer.value.load();
         videoPlayer.value.play();
-        videoPlayer.value.requestFullscreen();
     }
 }
 
@@ -100,7 +96,6 @@ function updateProgress() {
 
 function updateVideoTime() {
     videoPlayer.value.currentTime = videoPlayer.value.duration * videoProgress.value / 100;
-    console.log(videoPlayer.value.currentTime)
 }
 
 async function mountPhone() {
@@ -124,7 +119,7 @@ async function shutDown() {
         <video ref="videoPlayer" @click="togglePlay" class="full-screen-video" @play="isPlaying = true"
             @pause="isPlaying = false" @waiting="isLoading = true" @canplay="isLoading = false" @ended="playNext"
             @timeupdate="updateProgress"
-            style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; z-index: 1;">
+            style="position: absolute; background-color: black; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: 100%; object-fit: contain; z-index: 1;">
             <source v-if="currentSong.url" :src="currentSong.url" type="video/mp4">
             <source v-for="song in currentSong.length ? currentSong : []" :src="song.url" type="video/mp4">
         </video>
@@ -145,7 +140,7 @@ async function shutDown() {
             </button>
             <input type="range" v-model="videoProgress" @input="updateVideoTime" min="0" max="100"
                 class="fancy-progress"
-                style="width: 200px; appearance: none; -webkit-appearance: none; background: linear-gradient(to right, #4a69bd, #0abde3); height: 8px; border-radius: 4px; outline: none; opacity: 0.7; transition: opacity 0.2s;">
+                style="width: 70vw; appearance: none; -webkit-appearance: none; background: linear-gradient(to right, #4a69bd, #0abde3); height: 8px; border-radius: 4px; outline: none; opacity: 0.7; transition: opacity 0.2s;">
         </div>
 
         <div v-if="showToast" class="toast-container">
