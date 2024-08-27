@@ -18,7 +18,7 @@ onMounted(() => {
                 ...song,
                 url: `${prefix}/media/${song.path}`,
                 name: song.name || song.path.split('/').pop().replace(/\.[^/.]+$/, '')
-            })).filter(song => song.path.endsWith('.mp4'))
+            })).filter(song => song.path.toLowerCase().endsWith('.mp4') || song.path.toLowerCase().endsWith('.mkv'))
             songs.value = data.filter(song => song.path.indexOf('kalaok') > -1)
             videos.value = data.filter(song => song.path.indexOf('kalaok') < 0)
         })
