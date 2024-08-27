@@ -29,10 +29,10 @@ onMounted(() => {
             data = data.files.map(song => ({
                 ...song,
                 url: `${prefix}/media/${song.path}`,
-                name: song.name || song.path.split('/').pop().replace(/\.[^/.]+$/, '')
+                name: song.name || song.path.split('/').pop().replace(/\.[^/.]+$/, '').replace('_karaoke', '')
             })).filter(song => song.path.toLowerCase().endsWith('.mp4') || song.path.toLowerCase().endsWith('.mkv'))
-            songs.value = data.filter(song => song.path.indexOf('kalaok') > -1)
-            videos.value = data.filter(song => song.path.indexOf('kalaok') < 0)
+            songs.value = data.filter(song => song.path.indexOf('kalaok') > -1 || song.path.indexOf('_karaoke') > -1)
+            videos.value = data.filter(song => !(songs.value.filter(s => s.path == song.path)[0]))
         })
 })
 
@@ -59,6 +59,7 @@ function togglePlay() {
 
 function playKalaOK() {
     currentSong.value = songs.value.sort(() => Math.random() - 0.5)
+    currentSong.value.src = songs[0].url
     isPlaying.value = true
     nextTick(() => {
         if (videoPlayer.value) {
@@ -108,9 +109,12 @@ async function mountPhone() {
 }
 
 async function shutDown() {
-    const rsp = await fetch(`${prefix}/run?s=poweroff`)
-    const msg = await rsp.text()
-    displayToast(msg)
+    await fetch(`${prefix}/run?s=umountsmb`)
+    setTimeout(async () => {
+        const rsp = await fetch(`${prefix}/run?s=poweroff`)
+        const msg = await rsp.text()
+        displayToast(msg)
+    }, 1000);
 }
 
 </script>
