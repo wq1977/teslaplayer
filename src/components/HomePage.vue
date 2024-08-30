@@ -59,10 +59,12 @@ function togglePlay() {
 
 function playKalaOK() {
     currentSong.value = songs.value.sort(() => Math.random() - 0.5)
-    currentSong.value.src = songs[0].url
     isPlaying.value = true
     nextTick(() => {
         if (videoPlayer.value) {
+            if (videoPlayer.value.src && videoPlayer.value.src != currentSong.value[0].url) {
+                videoPlayer.value.src = currentSong.value[0].url
+            }
             videoPlayer.value.load()
             videoPlayer.value.play()
         }
