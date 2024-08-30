@@ -116,6 +116,49 @@ async function shutDown() {
         const rsp = await fetch(`${prefix}/run?s=poweroff`)
         const msg = await rsp.text()
         displayToast(msg)
+
+        while (true) {
+            try {
+                await fetch(`${prefix}/run?s=hi`)
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (e) {
+                break
+            }
+        }
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        // 创建一个覆盖层元素
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+        overlay.style.transition = 'background-color 2s ease';
+        overlay.style.zIndex = '9999';
+        overlay.style.display = 'flex';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+
+        // 创建文字元素
+        const text = document.createElement('div');
+        text.textContent = '再见';
+        text.style.color = 'white';
+        text.style.fontSize = '5rem';
+        text.style.opacity = '0';
+        text.style.transition = 'opacity 2s ease';
+
+        // 将文字添加到覆盖层
+        overlay.appendChild(text);
+
+        // 将覆盖层添加到body
+        document.body.appendChild(overlay);
+
+        // 触发渐变效果
+        setTimeout(() => {
+            overlay.style.backgroundColor = 'rgba(0, 0, 0, 1)';
+            text.style.opacity = '1';
+        }, 100);
     }, 1000);
 }
 
