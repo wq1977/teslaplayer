@@ -6,7 +6,9 @@ const videoPlayer = ref(null)
 const currentSong = ref({})
 const isPlaying = ref(false)
 const isLoading = ref(false)
+const showPhoneScreen = ref(false)
 const videoProgress = ref(0)
+const mirrorUrl = ref('')
 
 const prefix = import.meta.env.MODE === 'development' ? 'http://localhost:3000' : ''
 
@@ -34,6 +36,7 @@ onMounted(() => {
             songs.value = data.filter(song => song.path.indexOf('kalaok') > -1 || song.path.indexOf('_karaoke') > -1)
             videos.value = data.filter(song => !(songs.value.filter(s => s.path == song.path)[0]))
         })
+    mirrorUrl.value = `http://${location.host.split(':')[0]}:3339`
 })
 
 function playSong(song) {
@@ -115,6 +118,32 @@ function updateVideoTime() {
             style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; display: flex; justify-content: center; align-items: center;">
             <div class="spinner"
                 style="width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;">
+            </div>
+        </div>
+
+
+        <div v-if="!isPlaying" class="phone-button" @click="showPhoneScreen = !showPhoneScreen"
+            :class="{ 'active': showPhoneScreen }">
+            <div class="phone-icon">
+                <div class="phone-screen"></div>
+                <div class="phone-home-button"></div>
+            </div>
+        </div>
+
+        <div v-if="showPhoneScreen" class="phone-screen-overlay">
+            <!-- 这里可以添加手机屏幕的内容 -->
+            <div class="phone-screen-content">
+                <iframe :src="mirrorUrl" class="phone-iframe" style="
+                width: 100%;
+                height: 100%;
+                border: none;
+                margin: 0;
+                padding: 0;
+                border-radius: 0;
+                box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+                background-color: #f5f5f5;
+                transition: all 0.3s ease-in-out;
+            "></iframe>
             </div>
         </div>
 
@@ -257,5 +286,79 @@ function updateVideoTime() {
         opacity: 0;
         transform: translateY(-20px);
     }
+}
+
+.phone-button {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    height: 100px;
+    background-color: #333;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+.phone-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+}
+
+.phone-button.active {
+    background-color: #4a69bd;
+}
+
+.phone-icon {
+    width: 50px;
+    height: 90px;
+    background-color: #222;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px;
+}
+
+.phone-screen {
+    width: 45px;
+    height: 75px;
+    background-color: #4a69bd;
+    border-radius: 3px;
+}
+
+.phone-home-button {
+    width: 15px;
+    height: 15px;
+    border: 2px solid #666;
+    border-radius: 50%;
+}
+
+.phone-screen-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+}
+
+.phone-screen-content {
+    background-color: white;
+    padding: 0;
+    margin: 0;
+    border-radius: 0;
+    text-align: center;
+    width: 100%;
+    height: 100%;
 }
 </style>
