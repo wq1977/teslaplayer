@@ -139,11 +139,13 @@ END_SECTOR=$((TOTAL_SECTORS - 1))
 echo -e "n\np\n\n${START_SECTOR}\n${END_SECTOR}\nt\n\n7\nw" | fdisk $DEVICE
 sync
 NEW_PARTITION=$(fdisk -l $DEVICE | grep "^${DEVICE}p" | tail -1 | awk '{print $1}')
-mkfs.exfat -n "Tesla" $NEW_PARTITION
+mkfs.exfat -L "Tesla" $NEW_PARTITION
 mkdir /tesla
 
 # /etc/rc.local
 cat  << 'EOF' > /etc/rc.local
+# https://github.com/wq1977/teslaplayer
+# 2024.9.1
 ip addr add 3.3.3.3/32 dev br-lan
 mount /boot -o remount,ro
 mount / -o remount,ro
