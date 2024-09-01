@@ -1,0 +1,200 @@
+#!/bin/bash
+
+# 检查参数数量
+if [ $# -lt 2 ]; then
+    echo "用法: $0 <网址> <文件名> [--no-video-check] [--no-audio-check]"
+    exit 1
+fi
+
+# 获取参数
+url=""
+output_name=""
+no_video_check=false
+no_audio_check=false
+
+for arg in "$@"; do
+    case "$arg" in
+        http*://*)
+            url="$arg"
+            ;;
+        --no-video-check)
+            no_video_check=true
+            ;;
+        --no-audio-check)
+            no_audio_check=true
+            ;;
+        *)
+            if [ -z "$output_name" ]; then
+                output_name="$arg"
+            fi
+            ;;
+    esac
+done
+
+# 检查必要参数是否提供
+if [ -z "$url" ] || [ -z "$output_name" ]; then
+    echo "用法: $0 <网址> <文件名> [--no-video-check] [--no-audio-check]"
+    exit 1
+fi
+
+# 检查目标文件是否已存在
+existing_file=$(find "$HOME/Desktop" -name "${output_name}.*" -type f)
+if [ -n "$existing_file" ]; then
+    echo "目标文件已存在：$existing_file"
+    echo "跳过下载环节"
+else
+    # 使用yt-dlp下载视频
+    yt-dlp --cookies-from-browser chrome -f "bestvideo+bestaudio/best" -o "$HOME/Desktop/${output_name}.%(ext)s" "$url"
+
+    # 检查下载是否成功
+    if [ $? -eq 0 ]; then
+        echo "视频下载成功: ${output_name}.*"
+    else
+        echo "视频下载失败"
+        exit 1
+    fi
+fi
+
+# 检查下载的视频清晰度
+video_file=$(find "$HOME/Desktop" -name "${output_name}.*" -type f)
+if [ -f "$video_file" ]; then
+    if [ "$no_video_check" = false ]; then
+        resolution=$(ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=width,height -of csv=p=0 "$video_file" | sed 's/,/x/')
+        width=$(echo $resolution | cut -d'x' -f1)
+        if [ "$width" -lt 1920 ]; then
+            echo "视频清晰度低于1080p（${resolution}），下载失败"
+            exit 1
+        else
+            echo "视频清晰度检查通过：${resolution}"
+        fi
+    else
+        echo "跳过视频清晰度检查"
+    fi
+else
+    echo "找不到下载的视频文件"
+    exit 1
+fi
+
+# 检查音频清晰度
+if [ "$no_audio_check" = false ]; then
+    audio_bitrate=$(ffprobe -v error -select_streams a:0 -show_entries stream=bit_rate -of default=noprint_wrappers=1:nokey=1 "$video_file")
+    audio_bitrate_kb=$((audio_bitrate / 1000))
+
+    if [ "$audio_bitrate_kb" -lt 191 ]; then
+        echo "音频码流低于239kb/s（${audio_bitrate_kb}kb/s），下载失败"
+        exit 1
+    else
+        echo "音频清晰度检查通过：${audio_bitrate_kb}kb/s"
+    fi
+else
+    echo "跳过音频清晰度检查"
+fi
+
+# 检查视频和音频格式
+video_format=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$video_file")
+audio_format=$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$video_file")
+
+if [ "$video_format" != "h264" ] || [ "$audio_format" != "aac" ]; then
+    echo "视频格式为 $video_format ，音频格式为 $audio_format ，需要进行格式转换"
+    
+    output_file="$HOME/Desktop/${output_name}_converted.mp4"
+    # 获取原始视频的分辨率
+    original_resolution=$(ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=width,height -of csv=p=0 "$video_file")
+    original_width=$(echo $original_resolution | cut -d',' -f1)
+    original_height=$(echo $original_resolution | cut -d',' -f2)
+
+    # 获取原始音频的码流
+    original_audio_bitrate=$(ffprobe -v error -select_streams a:0 -show_entries stream=bit_rate -of default=noprint_wrappers=1:nokey=1 "$video_file")
+    if [ "$original_audio_bitrate" = "N/A" ]; then
+        original_audio_bitrate_kb=192
+    else
+        original_audio_bitrate_kb=$((original_audio_bitrate / 1000))
+    fi
+
+    if [ $original_width -gt 1920 ] || [ $original_height -gt 1080 ]; then
+        if [ $original_audio_bitrate_kb -gt 192 ]; then
+            ffmpeg -i "$video_file" -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2" -c:v libx264 -c:a aac -b:a 192k "$output_file"
+        else
+            ffmpeg -i "$video_file" -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2" -c:v libx264 -c:a aac -b:a ${original_audio_bitrate_kb}k "$output_file"
+        fi
+    else
+        if [ $original_audio_bitrate_kb -gt 192 ]; then
+            ffmpeg -i "$video_file" -c:v libx264 -c:a aac -b:a 192k "$output_file"
+        else
+            ffmpeg -i "$video_file" -c:v libx264 -c:a aac -b:a ${original_audio_bitrate_kb}k "$output_file"
+        fi
+    fi
+    
+    if [ $? -eq 0 ]; then
+        echo "格式转换成功，新文件：$output_file"
+        rm "$video_file"
+        mv "$output_file" "$video_file"
+    else
+        echo "格式转换失败"
+        exit 1
+    fi
+else
+    echo "视频和音频格式检查通过：视频格式为 $video_format ，音频格式为 $audio_format"
+fi
+
+# 分离音频为m4a格式
+audio_output="$HOME/Desktop/${output_name}_audio.m4a"
+ffmpeg -i "$video_file" -vn -acodec copy "$audio_output"
+
+if [ $? -eq 0 ]; then
+    echo "音频分离成功，保存为：$audio_output"
+else
+    echo "音频分离失败"
+    exit 1
+fi
+
+# 切换工作目录到vocal-remover项目
+cd /Users/wwq/code/github/vocal-remover
+
+# 调用inference.py进行人声移除
+python3 inference.py --input "$audio_output" --output_dir "$HOME/Desktop"
+
+if [ $? -eq 0 ]; then
+    echo "人声移除成功，输出文件保存在桌面"
+else
+    echo "人声移除失败"
+    exit 1
+fi
+
+# 切回原来的工作目录
+cd - > /dev/null
+
+# 重命名输出文件
+mv "$HOME/Desktop/$(basename "$audio_output" .m4a)_Instruments.wav" "$HOME/Desktop/${output_name}_instrumental.wav"
+mv "$HOME/Desktop/$(basename "$audio_output" .m4a)_Vocals.wav" "$HOME/Desktop/${output_name}_vocals.wav"
+
+echo "人声和伴奏分离完成："
+echo "伴奏文件：$HOME/Desktop/${output_name}_instrumental.wav"
+echo "人声文件：$HOME/Desktop/${output_name}_vocals.wav"
+
+# 将伴奏转换为m4a格式
+instrumental_m4a="$HOME/Desktop/${output_name}_instrumental.m4a"
+ffmpeg -i "$HOME/Desktop/${output_name}_instrumental.wav" "$instrumental_m4a"
+
+if [ $? -eq 0 ]; then
+    echo "伴奏转换为m4a格式成功，新文件：$instrumental_m4a"
+    rm "$HOME/Desktop/${output_name}_instrumental.wav"
+else
+    echo "伴奏转换为m4a格式失败"
+    exit 1
+fi
+
+
+# 合并视频和伴奏
+output_video="$HOME/Desktop/${output_name}_karaoke.mp4"
+ffmpeg -i "$video_file" -i "${instrumental_m4a}" -c:v copy -c:a copy -map 0:v:0 -map 1:a:0 "$output_video"
+
+if [ $? -eq 0 ]; then
+    echo "视频和伴奏合并成功，新文件：$output_video"
+else
+    echo "视频和伴奏合并失败"
+    exit 1
+fi
+
+echo "卡拉OK视频制作完成："
+echo "卡拉OK视频文件：$output_video"
