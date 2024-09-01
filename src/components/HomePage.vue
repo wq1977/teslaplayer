@@ -32,7 +32,7 @@ onMounted(() => {
                 ...song,
                 url: `${prefix}/media/${song.path}`,
                 name: song.name || song.path.split('/').pop().replace(/\.[^/.]+$/, '').replace('_karaoke', '')
-            })).filter(song => song.path.toLowerCase().endsWith('.mp4') || song.path.toLowerCase().endsWith('.mkv'))
+            })).filter(song => song.path.toLowerCase().endsWith('.mp4') && !song.name.startsWith('.'))
             songs.value = data.filter(song => song.path.indexOf('kalaok') > -1 || song.path.indexOf('_karaoke') > -1)
             videos.value = data.filter(song => !(songs.value.filter(s => s.path == song.path)[0]))
         })
@@ -108,8 +108,8 @@ function updateVideoTime() {
 <template>
     <div class="video-container" style="position: relative; width: 100vw; height: 100vh;">
         <video ref="videoPlayer" @click="togglePlay" class="full-screen-video" @play="isPlaying = true"
-            @pause="isPlaying = false" @waiting="isLoading = true" @canplay="isLoading = false" @ended="playNext"
-            @timeupdate="updateProgress"
+            @pause="isPlaying = false" @waiting="isLoading = true" @canplay="isLoading = false" @error="playNext"
+            @ended="playNext" @timeupdate="updateProgress"
             style="position: absolute; background-color: black; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: 100%; object-fit: contain; z-index: 1;">
             <source v-if="currentSong.url" :src="currentSong.url" type="video/mp4">
             <source v-for="song in currentSong.length ? currentSong : []" :src="song.url" type="video/mp4">
