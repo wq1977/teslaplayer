@@ -1,0 +1,151 @@
+# 启用 Wi-Fi
+uci set wireless.radio0.disabled='0'
+uci set wireless.@wifi-iface[0].ssid='OpenWRT3B'
+uci set wireless.@wifi-iface[0].encryption='psk2'
+uci set wireless.@wifi-iface[0].key='12345678'
+uci commit wireless
+
+# 配置 USB 网络
+uci set network.usb0=interface
+uci set network.usb0.proto='dhcp'
+uci set network.usb0.device='usb0'
+
+# 将 USB 接口添加到 lan 桥接
+uci add_list network.lan.ifname='usb0'
+
+# 启用 USB 模式切换
+uci set usbmode.config.enable='1'
+
+# 配置防火墙
+uci add_list firewall.@zone[1].network='usb0'
+
+uci commit
+
+# 创建自动检测和配置 USB 网络的脚本
+cat << 'EOF' > /etc/hotplug.d/usb/30-usb-network
+#!/bin/sh
+
+if [ "${ACTION}" = "add" ]; then
+  # 等待设备初始化
+  sleep 5
+
+  # 检查是否存在 usb0 接口
+  if ip link show usb0 > /dev/null 2>&1; then
+    logger "USB network device detected, bringing up interface"
+    ifup usb0
+    # 重启网络以应用更改
+    /etc/init.d/network restart
+  fi
+fi
+EOF
+
+chmod +x /etc/hotplug.d/usb/30-usb-network
+
+# 修改 uhttpd 配置
+uci set uhttpd.main.listen_http='8080'
+uci set uhttpd.main.listen_https='8443'
+uci commit uhttpd
+
+# /etc/nginx/conf.d/tesla.conf
+cat << 'EOF' > /etc/nginx/conf.d/tesla.conf
+server {
+    listen 3337;
+    server_name localhost;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host \$http_host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+
+server {
+    listen 80;
+    server_name tesla;
+    root /tesla;
+
+    location /list {
+        default_type application/json;
+        content_by_lua '
+local lfs = require("lfs")
+local json = require("cjson")
+
+function find_mp4_files(directory)
+    local mp4_files = {}
+    local base_length = #directory + 1
+
+    local function recursive_search(dir)
+        for file in lfs.dir(dir) do
+            if file ~= "." and file ~= ".." then
+                local path = dir .. "/" .. file
+                local attr = lfs.attributes(path)
+
+                if attr.mode == "directory" then
+                    recursive_search(path)
+                elseif attr.mode == "file" then
+                    local ext = file:match("%.([^.]+)$")
+                    if ext and ext:lower() == "mp4" then
+                        local relative_path = path:sub(base_length)
+                        table.insert(mp4_files, {path = relative_path})
+                    end
+                end
+            end
+        end
+    end
+
+    recursive_search(directory)
+    return json.encode(mp4_files)
+end
+ngx.say("{\\"files\\":" .. find_mp4_files("/tesla/media") .. "}")
+        ';
+    }
+}
+
+server {
+    listen 3339;
+    server_name localhost;
+    root /tesla;
+
+     location / {
+        proxy_pass http://192.168.59.29:3339;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$http_host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+}
+EOF
+
+uci delete nginx._lan
+uci delete nginx._redirect2ssl
+uci commit nginx
+
+# 确保 Nginx 开机自启
+/etc/init.d/nginx enable
+
+# 用剩余空间
+DEVICE="/dev/mmcblk0"
+TOTAL_SECTORS=$(fdisk -l $DEVICE | grep '^Disk' | awk '{print $7}')
+LAST_USED_SECTOR=$(fdisk -l $DEVICE | grep "^${DEVICE}p" | tail -1 | awk '{print $3}')
+START_SECTOR=$((LAST_USED_SECTOR + 1))
+END_SECTOR=$((TOTAL_SECTORS - 1))
+echo -e "n\np\n\n${START_SECTOR}\n${END_SECTOR}\nt\n\n7\nw" | fdisk $DEVICE
+sync
+NEW_PARTITION=$(fdisk -l $DEVICE | grep "^${DEVICE}p" | tail -1 | awk '{print $1}')
+mkfs.exfat $NEW_PARTITION
+mkdir /tesla
+
+# /etc/rc.local
+cat  << 'EOF' > /etc/rc.local
+ip addr add 3.3.3.3/32 dev br-lan
+mount /boot -o remount,ro
+mount / -o remount,ro
+mount -t exfat -o ro /dev/mmcblk0p3 /tesla
+EOF
