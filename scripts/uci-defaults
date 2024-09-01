@@ -1,9 +1,29 @@
-# 启用 Wi-Fi
-uci set wireless.radio0.disabled='0'
-uci set wireless.@wifi-iface[0].ssid='OpenWRT3B'
-uci set wireless.@wifi-iface[0].encryption='psk2'
-uci set wireless.@wifi-iface[0].key='12345678'
+uci set wireless.radio0.disabled='0'  # 启用无线设备
+
+# 设置无线电设备
+uci set wireless.radio0.type='mac80211'
+uci set wireless.radio0.channel='149'
+uci set wireless.radio0.path='platform/soc/3f300000.mmcnr/mmc_host/mmc1/mmc1:0001/mmc1:0001:1'
+
+# 树莓派3B和3B+的区别主要在htmode
+# 3B:
+# uci set wireless.radio0.htmode='HT20'
+# 3B+:
+uci set wireless.radio0.htmode='VHT80'
+uci set wireless.radio0.country='CN'
+uci set wireless.radio0.band='5g'
+
+# 设置Wi-Fi接口
+uci set wireless.default_radio0=wifi-iface
+uci set wireless.default_radio0.device='radio0'
+uci set wireless.default_radio0.network='lan'
+uci set wireless.default_radio0.mode='ap'  # 设置为AP模式
+uci set wireless.default_radio0.ssid='OpenWrt-AP'  # 设置热点名称（SSID）
+uci set wireless.default_radio0.encryption='psk2'  # 设置加密方式为WPA2
+uci set wireless.default_radio0.key='12345678'  # 设置Wi-Fi密码
+
 uci commit wireless
+wifi reload
 
 # 配置 USB 网络
 uci set network.usb0=interface
@@ -145,7 +165,7 @@ mkdir /tesla
 # /etc/rc.local
 cat  << 'EOF' > /etc/rc.local
 # https://github.com/wq1977/teslaplayer
-# 2024.9.1
+# 2024.9.1 v2
 ip addr add 3.3.3.3/32 dev br-lan
 mount /boot -o remount,ro
 mount / -o remount,ro

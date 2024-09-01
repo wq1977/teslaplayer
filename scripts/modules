@@ -1,1 +1,1 @@
-nginx-all-module kmod-usb-net kmod-usb-net-rndis kmod-usb-net-cdc-ether usbutils fdisk kmod-fs-exfat exfat-fsck exfat-mkfs rsync luafilesystem lua-cjson kmod-fs-cifs cifsmount nano
+nginx-all-module kmod-usb-net kmod-usb-net-rndis kmod-usb-net-cdc-ether usbutils fdisk kmod-fs-exfat exfat-fsck exfat-mkfs rsync luafilesystem lua-cjson kmod-fs-cifs cifsmount vim
