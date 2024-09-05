@@ -15,6 +15,10 @@ const prefix = import.meta.env.MODE === 'development' ? 'http://localhost:3000' 
 const showToast = ref(false)
 const toastMessage = ref('')
 
+// 新增：弹出菜单相关的响应式变量
+const showPopupMenu = ref(false)
+const popupMenuPosition = ref({ x: 0, y: 0 })
+
 function displayToast(message, duration = 3000) {
     toastMessage.value = message
     showToast.value = true
@@ -23,6 +27,40 @@ function displayToast(message, duration = 3000) {
     }, duration)
 }
 
+// 新增：长按事件处理函数
+function handleLongPress(event) {
+    console.log('handleLongPress', event)
+    event.preventDefault()
+    showPopupMenu.value = true
+    popupMenuPosition.value = {
+        x: event.clientX,
+        y: event.clientY
+    }
+}
+
+// 新增：菜单项点击处理函数
+function handleMenuItemClick(action) {
+    switch (action) {
+        case 'refresh':
+            window.location.reload(true)
+            break
+        case 'checkUpdate':
+            displayToast('正在检查新版本...')
+            // 在这里添加检查更新逻辑
+            break
+        case 'debug':
+            if (window.vConsole) {
+                window.vConsole.destroy();
+                console.log('vConsole 已关闭');
+                window.vConsole = null;
+            } else {
+                window.vConsole = new VConsole();
+                console.log('vConsole 已启用');
+            }
+            break
+    }
+    showPopupMenu.value = false
+}
 
 onMounted(() => {
     fetch(`${prefix}/list`)
@@ -37,6 +75,10 @@ onMounted(() => {
             videos.value = data.filter(song => !(songs.value.filter(s => s.path == song.path)[0]))
         })
     mirrorUrl.value = `http://${location.host.split(':')[0]}:3339`
+
+    // 新增：添加长按事件监听
+    document.addEventListener('contextmenu', handleLongPress)
+    console.log('contextmenu', handleLongPress)
 })
 
 function playSong(song) {
@@ -121,6 +163,28 @@ function updateVideoTime() {
             </div>
         </div>
 
+        <!-- 新增：弹出菜单 -->
+        <div v-if="showPopupMenu" class="popup-menu"
+            :style="{ top: popupMenuPosition.y + 'px', left: popupMenuPosition.x + 'px', backgroundColor: 'rgba(255, 255, 255, 0.9)', borderRadius: '10px', boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)', padding: '10px', minWidth: '150px' }">
+            <div class="menu-item" @click="handleMenuItemClick('refresh')"
+                style="padding: 10px; margin: 5px 0; border-radius: '5px'; transition: 'all 0.3s ease'; cursor: 'pointer'; display: 'flex'; align-items: 'center'; color: var(--text-color, #000);"
+                @mouseenter="$event.target.style.backgroundColor = '#f0f0f0'"
+                @mouseleave="$event.target.style.backgroundColor = 'transparent'">
+                <span style="margin-right: 10px;">&#x21BB;</span>刷新
+            </div>
+            <div class="menu-item" @click="handleMenuItemClick('checkUpdate')"
+                style="padding: 10px; margin: 5px 0; border-radius: '5px'; transition: 'all 0.3s ease'; cursor: 'pointer'; display: 'flex'; align-items: 'center'; color: var(--text-color, #000);"
+                @mouseenter="$event.target.style.backgroundColor = '#f0f0f0'"
+                @mouseleave="$event.target.style.backgroundColor = 'transparent'">
+                <span style="margin-right: 10px;">&#x2B07;</span>检查新版本
+            </div>
+            <div class="menu-item" @click="handleMenuItemClick('debug')"
+                style="padding: 10px; margin: 5px 0; border-radius: '5px'; transition: 'all 0.3s ease'; cursor: 'pointer'; display: 'flex'; align-items: 'center'; color: var(--text-color, #000);"
+                @mouseenter="$event.target.style.backgroundColor = '#f0f0f0'"
+                @mouseleave="$event.target.style.backgroundColor = 'transparent'">
+                <span style="margin-right: 10px;">&#x1F41B;</span>调试
+            </div>
+        </div>
 
         <div v-if="!isPlaying" class="phone-button" @click="showPhoneScreen = !showPhoneScreen"
             :class="{ 'active': showPhoneScreen }">
@@ -243,6 +307,27 @@ function updateVideoTime() {
     100% {
         transform: rotate(360deg);
     }
+}
+
+.popup-menu {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    z-index: 1000;
+}
+
+.menu-item {
+    cursor: pointer;
+    padding: 5px;
+    margin: 5px 0;
+    border-radius: 3px;
+    transition: background-color 0.3s ease;
+}
+
+.menu-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 .toast-container {
