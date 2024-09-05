@@ -19,6 +19,7 @@ jobs:
 
       - name: 构建项目
         run: |
+          echo "export const VERSION = \"${{ github.ref_name }}\";" > src/version.ts
           deno task build
           zip -r teslamedia_${{ github.ref_name }}.zip dist
 

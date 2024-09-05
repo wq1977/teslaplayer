@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
+import { VERSION } from '../version'
 const videos = ref([])
 const songs = ref([])
 const videoPlayer = ref(null)
@@ -38,6 +39,16 @@ function handleLongPress(event) {
     }
 }
 
+async function runScript(script) {
+    try {
+        const response = await fetch(`${prefix}/run?s=${script}&args=${VERSION}`)
+        const scriptContent = await response.text()
+        displayToast(scriptContent)
+    } catch (error) {
+        displayToast(error.message)
+    }
+}
+
 // 新增：菜单项点击处理函数
 function handleMenuItemClick(action) {
     switch (action) {
@@ -45,8 +56,7 @@ function handleMenuItemClick(action) {
             window.location.reload(true)
             break
         case 'checkUpdate':
-            displayToast('正在检查新版本...')
-            // 在这里添加检查更新逻辑
+            runScript('checkUpdate')
             break
         case 'debug':
             if (window.vConsole) {
@@ -192,6 +202,11 @@ function updateVideoTime() {
                 <div class="phone-screen"></div>
                 <div class="phone-home-button"></div>
             </div>
+        </div>
+
+        <div class="version-display"
+            style="position: absolute; bottom: 10px; left: 10px; font-size: 12px; color: rgba(255, 255, 255, 0.5); z-index: 3;">
+            版本: {{ VERSION }}
         </div>
 
         <div v-if="showPhoneScreen" class="phone-screen-overlay">

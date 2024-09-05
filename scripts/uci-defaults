@@ -1,26 +1,25 @@
+#!/bin/bash
 uci set wireless.radio0.disabled='0'  # 启用无线设备
 
-# 设置无线电设备
-uci set wireless.radio0.type='mac80211'
-uci set wireless.radio0.channel='149'
-uci set wireless.radio0.path='platform/soc/3f300000.mmcnr/mmc_host/mmc1/mmc1:0001/mmc1:0001:1'
+# for 树莓派 3B
+uci set wireless.@wifi-iface[0].ssid='OpenWrt-AP'
+uci set wireless.@wifi-iface[0].encryption='psk2'
+uci set wireless.@wifi-iface[0].key='12345678'
 
-# 树莓派3B和3B+的区别主要在htmode
-# 3B:
-# uci set wireless.radio0.htmode='HT20'
-# 3B+:
-uci set wireless.radio0.htmode='VHT80'
-uci set wireless.radio0.country='CN'
-uci set wireless.radio0.band='5g'
-
-# 设置Wi-Fi接口
-uci set wireless.default_radio0=wifi-iface
-uci set wireless.default_radio0.device='radio0'
-uci set wireless.default_radio0.network='lan'
-uci set wireless.default_radio0.mode='ap'  # 设置为AP模式
-uci set wireless.default_radio0.ssid='OpenWrt-AP'  # 设置热点名称（SSID）
-uci set wireless.default_radio0.encryption='psk2'  # 设置加密方式为WPA2
-uci set wireless.default_radio0.key='12345678'  # 设置Wi-Fi密码
+# for 树莓派 3B+
+# uci set wireless.radio0.type='mac80211'
+# uci set wireless.radio0.channel='149'
+# uci set wireless.radio0.path='platform/soc/3f300000.mmcnr/mmc_host/mmc1/mmc1:0001/mmc1:0001:1'
+# uci set wireless.radio0.htmode='VHT80'
+# uci set wireless.radio0.country='CN'
+# uci set wireless.radio0.band='5g'
+# uci set wireless.default_radio0=wifi-iface
+# uci set wireless.default_radio0.device='radio0'
+# uci set wireless.default_radio0.network='lan'
+# uci set wireless.default_radio0.mode='ap' 
+# uci set wireless.default_radio0.ssid='OpenWrt-AP'
+# uci set wireless.default_radio0.encryption='psk2'
+# uci set wireless.default_radio0.key='12345678'
 
 uci commit wireless
 wifi reload
@@ -66,6 +65,64 @@ uci set uhttpd.main.listen_http='8080'
 uci set uhttpd.main.listen_https='8443'
 uci commit uhttpd
 
+mkdir -p /root/scripts
+cat << 'EOF' > /root/scripts/checkUpdate
+# 检查是否提供了当前版本号参数
+if [ $# -eq 0 ]; then
+    echo "请提供当前版本号作为参数"
+    exit 1
+fi
+
+CURRENT_VERSION="$1"
+REPO="wq1977/teslaplayer"
+API_URL="https://api.github.com/repos/$REPO/releases/latest"
+
+# 获取最新版本信息
+LATEST_INFO=$(curl -s "$API_URL")
+
+# 使用jq解析JSON,获取最新版本号
+LATEST_VERSION=$(echo "$LATEST_INFO" | jq -r .tag_name)
+
+# echo "当前版本: $CURRENT_VERSION"
+# echo "最新版本: $LATEST_VERSION"
+
+# 比较版本号
+if [ "$CURRENT_VERSION" != "$LATEST_VERSION" ]; then
+    # echo "发现新版本,开始更新..."
+
+    # 获取zip文件的下载URL
+    DOWNLOAD_URL=$(echo "$LATEST_INFO" | jq -r '.assets[] | select(.name | endswith(".zip")) | .browser_download_url')
+
+    if [ -z "$DOWNLOAD_URL" ]; then
+        echo "未找到zip文件,退出更新"
+        exit 1
+    fi
+
+    # 创建临时目录
+    TEMP_DIR=$(mktemp -d)
+    ZIP_FILE="$TEMP_DIR/update.zip"
+
+    # 下载zip文件
+    # echo "下载更新文件..."
+    curl -L "$DOWNLOAD_URL" -o "$ZIP_FILE"
+
+    # 解压到/tesla目录
+    # echo "解压文件到/tesla目录..."
+    mount -o remount,rw /tesla
+    unzip -o "$ZIP_FILE" -d /tesla
+    mount -o remount,ro /tesla
+    
+    # 清理临时文件
+    rm -rf "$TEMP_DIR"
+
+    echo "更新完成"
+else
+    echo "当前已是最新版本,无需更新"
+fi
+EOF
+
+chmod +x /root/scripts/checkUpdate
+
 # /etc/nginx/conf.d/tesla.conf
 cat << 'EOF' > /etc/nginx/conf.d/tesla.conf
 server {
@@ -86,6 +143,30 @@ server {
     server_name tesla;
     root /tesla;
 
+    location /run {
+        default_type text/plain;
+        charset utf-8;
+        content_by_lua '
+        local args = ngx.req.get_uri_args()
+        local script = args.s
+        local script_args = args.args or ""
+        
+        if not script then
+            ngx.say("错误：未提供脚本名称")
+            return
+        end
+        
+        local script_path = "/root/scripts/" .. script
+        local command = script_path .. " " .. script_args:gsub(",", " ")
+        
+        local handle = io.popen(command)
+        local result = handle:read("*a")
+        handle:close()
+        
+        ngx.say(result)
+        ';
+    }
+
     location /list {
         default_type application/json;
         content_by_lua '
@@ -98,7 +179,7 @@ function find_mp4_files(directory)
 
     local function recursive_search(dir)
         for file in lfs.dir(dir) do
-            if file ~= "." and file ~= ".." then
+            if file ~= "." and file ~= ".." and not file:match("^%.") then
                 local path = dir .. "/" .. file
                 local attr = lfs.attributes(path)
 
