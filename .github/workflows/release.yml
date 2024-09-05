@@ -18,12 +18,14 @@ jobs:
           deno-version: v1.x
 
       - name: 构建项目
-        run: deno task build
+        run: |
+          deno task build
+          zip -r teslamedia_${{ github.ref_name }}.zip dist
 
       - name: 创建发布版本
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            dist/**/*
+            teslamedia_${{ github.ref_name }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
