@@ -247,7 +247,7 @@ mkdir /tesla
 cat  << 'EOF' > /etc/rc.local
 # https://github.com/wq1977/teslaplayer
 # 2024.9.1 v2
-ip addr add 3.3.3.3/32 dev br-lan
+ip addr add 3.3.6.6/32 dev br-lan
 mount /boot -o remount,ro
 mount / -o remount,ro
 mount -t exfat -o ro /dev/mmcblk0p3 /tesla
